@@ -1,0 +1,189 @@
+/**
+ * dashboard-layout.js
+ * Módulo centralizado para la arquitectura del dashboard.
+ * - Inyecta dinámicamente el Header y la Sidebar.
+ * - Gestiona el renderizado condicional del menú según el rol del usuario.
+ * - Controla la interactividad (toggle de sidebar, cambio de tema).
+ */
+
+// === CONFIGURACIÓN DE DEMO (Roles y Menú) ===
+const CURRENT_USER = {
+  name: "Diego A.",
+  role: "admin", // Cambiar a 'editor' o 'viewer' para probar
+};
+
+const MENU_ITEMS = [
+  {
+    id: "dashboard",
+    text: "Dashboard",
+    icon: "ti-home",
+    roles: ["admin", "editor", "viewer"],
+    href: "index.html",
+  },
+  {
+    id: "analytics",
+    text: "Analíticas",
+    icon: "ti-chart-bar",
+    roles: ["admin", "editor"],
+    href: "pagina2.html",
+  },
+  {
+    id: "reports",
+    text: "Reportes",
+    icon: "ti-file-text",
+    roles: ["admin", "editor"],
+  },
+  { id: "users", text: "Usuarios", icon: "ti-users", roles: ["admin"] },
+  {
+    id: "settings",
+    text: "Configuración",
+    icon: "ti-settings",
+    roles: ["admin", "editor", "viewer"],
+  },
+];
+
+/**
+ * Genera el HTML para la barra de navegación lateral (Sidebar).
+ * Filtra los ítems del menú basados en el rol del CURRENT_USER.
+ * @returns {string} El string HTML de la sidebar.
+ */
+function createSidebarHTML() {
+  const accessibleMenuItems = MENU_ITEMS.filter((item) =>
+    item.roles.includes(CURRENT_USER.role)
+  );
+
+  const menuItemsHTML = accessibleMenuItems
+    .map((item) => {
+      // Determina si el ítem está activo comparando con la URL actual
+      const currentFile = window.location.pathname.split("/").pop();
+      const isActive = currentFile === item.href;
+      return `
+            <li class="menu-item ${isActive ? "active" : ""}">
+                <a href="${item.href || "#"}">
+                    <i class="ti ${item.icon}"></i>
+                    <span class="menu-text">${item.text}</span>
+                </a>
+            </li>
+        `;
+    })
+    .join("");
+
+  return `
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                ${menuItemsHTML}
+            </ul>
+        </aside>
+    `;
+}
+
+/**
+ * Genera el HTML para la barra superior (Header).
+ * @returns {string} El string HTML del header.
+ */
+function createHeaderHTML() {
+  return `
+        <header class="header">
+            <div class="header-left">
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                    <i class="ti ti-menu-2"></i>
+                </button>
+                <div class="logo">
+                    <i class="ti ti-brand-appgallery"></i>
+                    <span>DashCore</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="theme-switch" id="themeSwitch" aria-label="Switch theme">
+                    <i class="ti ti-sun"></i>
+                </button>
+                <a href="#" class="header-icon" aria-label="Notifications"><i class="ti ti-bell"></i></a>
+                <a href="#" class="header-icon" aria-label="User profile"><i class="ti ti-user-circle"></i></a>
+            </div>
+        </header>
+    `;
+}
+
+/**
+ * Inicializa los listeners de eventos para la interactividad del layout.
+ * - Toggle de la Sidebar.
+ * - Cambio de tema (Dark/Light).
+ */
+function initializeEventListeners() {
+  const sidebarToggle = document.getElementById("sidebarToggle");
+  const themeSwitch = document.getElementById("themeSwitch");
+  const container = document.querySelector(".dashboard-container");
+  const body = document.body;
+  const themeIcon = themeSwitch.querySelector("i");
+
+  // 1. Listener para el toggle de la sidebar
+  if (sidebarToggle && container) {
+    sidebarToggle.addEventListener("click", () => {
+      container.classList.toggle("collapsed");
+    });
+  }
+
+  // 2. Listener para el cambio de tema
+  if (themeSwitch && body) {
+    // Cargar tema guardado
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    if (savedTheme === "light") {
+      body.classList.add("light-theme");
+      themeIcon.classList.replace("ti-moon", "ti-sun");
+    } else {
+      themeIcon.classList.replace("ti-sun", "ti-moon");
+    }
+
+    themeSwitch.addEventListener("click", () => {
+      body.classList.toggle("light-theme");
+      const isLight = body.classList.contains("light-theme");
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+
+      // Cambiar icono
+      if (isLight) {
+        themeIcon.classList.replace("ti-moon", "ti-sun");
+      } else {
+        themeIcon.classList.replace("ti-sun", "ti-moon");
+      }
+    });
+  }
+}
+
+/**
+ * Función principal de inicialización del dashboard.
+ * Se asegura de que el DOM esté cargado, luego inyecta el layout
+ * y activa los listeners.
+ */
+function initializeDashboard() {
+  document.addEventListener("DOMContentLoaded", () => {
+    const container = document.querySelector(".dashboard-container");
+    if (!container) {
+      console.error(
+        'Error: Contenedor principal ".dashboard-container" no encontrado.'
+      );
+      return;
+    }
+
+    // Inyectar el layout HTML
+    const headerHTML = createHeaderHTML();
+    const sidebarHTML = createSidebarHTML();
+
+    // Insertar el HTML en el contenedor
+    // Usamos un div temporal para no afectar el mainContent existente
+    const layoutWrapper = document.createElement("div");
+    layoutWrapper.innerHTML = headerHTML + sidebarHTML;
+
+    while (layoutWrapper.firstChild) {
+      container.insertBefore(
+        layoutWrapper.firstChild,
+        container.querySelector("main")
+      );
+    }
+
+    // Adjuntar los listeners de eventos
+    initializeEventListeners();
+  });
+}
+
+// --- Punto de Entrada ---
+initializeDashboard();
