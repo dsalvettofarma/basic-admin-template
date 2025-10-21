@@ -4,6 +4,7 @@
  * - Inyecta dinámicamente el Header y la Sidebar.
  * - Gestiona el renderizado condicional del menú según el rol del usuario.
  * - Controla la interactividad (toggle de sidebar, cambio de tema).
+ * - Carga dinámicamente el contenido de cada módulo en el área principal.
  */
 
 // === CONFIGURACIÓN DE DEMO (Roles y Menú) ===
@@ -34,6 +35,13 @@ const MENU_ITEMS = [
     roles: ["admin", "editor"],
   },
   {
+    id: "inspector",
+    text: "Inspector de Pagos",
+    icon: "ti-search",
+    roles: ["admin", "editor"],
+    href: "inspector.html",
+  },
+  {
     id: "users",
     text: "Usuarios",
     icon: "ti-users",
@@ -60,8 +68,9 @@ function createSidebarHTML() {
   const menuItemsHTML = accessibleMenuItems
     .map((item) => {
       // Determina si el ítem está activo comparando con la URL actual
-      const currentFile = window.location.pathname.split("/").pop();
-      const isActive = currentFile === item.href;
+      const currentPath = window.location.pathname;
+      // Compara la ruta completa para módulos en subdirectorios
+      const isActive = currentPath.endsWith(item.href);
       return `
             <li class="menu-item ${isActive ? "active" : ""}">
                 <a href="${item.href || "#"}">
@@ -136,8 +145,10 @@ function initializeEventListeners() {
     const savedTheme = localStorage.getItem("theme") || "dark";
     if (savedTheme === "light") {
       body.classList.add("light-theme");
+      document.documentElement.setAttribute('data-coreui-theme', 'light');
       themeIcon.classList.replace("ti-moon", "ti-sun");
     } else {
+      document.documentElement.setAttribute('data-coreui-theme', 'dark');
       themeIcon.classList.replace("ti-sun", "ti-moon");
     }
 
@@ -145,6 +156,9 @@ function initializeEventListeners() {
       body.classList.toggle("light-theme");
       const isLight = body.classList.contains("light-theme");
       localStorage.setItem("theme", isLight ? "light" : "dark");
+      
+      // Actualizar data-coreui-theme para módulos que lo usen
+      document.documentElement.setAttribute('data-coreui-theme', isLight ? 'light' : 'dark');
 
       // Cambiar icono
       if (isLight) {
@@ -165,9 +179,7 @@ function initializeDashboard() {
   document.addEventListener("DOMContentLoaded", () => {
     const container = document.querySelector(".dashboard-container");
     if (!container) {
-      console.error(
-        'Error: Contenedor principal ".dashboard-container" no encontrado.'
-      );
+      console.error('Error: Contenedor principal ".dashboard-container" no encontrado.');
       return;
     }
 
@@ -181,15 +193,49 @@ function initializeDashboard() {
     layoutWrapper.innerHTML = headerHTML + sidebarHTML;
 
     while (layoutWrapper.firstChild) {
-      container.insertBefore(
-        layoutWrapper.firstChild,
-        container.querySelector("main")
-      );
+      container.insertBefore(layoutWrapper.firstChild, container.querySelector("main"));
     }
 
     // Adjuntar los listeners de eventos
     initializeEventListeners();
+
+    // Cargar el contenido del módulo en el área principal
+    loadModuleContent();
   });
+}
+
+/**
+ * Carga el contenido específico del módulo en el área principal (mainContent).
+ * Busca un div con id="module-content" y lo inserta en mainContent.
+ * Si no existe, mantiene el contenido por defecto.
+ */
+function loadModuleContent() {
+  const mainContent = document.getElementById("mainContent");
+  if (!mainContent) return;
+
+  // Detecta la ruta del archivo actual (incluyendo subdirectorios)
+  const currentPath = window.location.pathname;
+  const currentFile = currentPath.split("/").pop();
+  
+  // Si es index.html, no hace falta cargar nada (ya está el contenido)
+  if (currentFile === "index.html") return;
+
+  // Carga el HTML del módulo y lo inserta en mainContent
+  fetch(currentPath)
+    .then((response) => response.text())
+    .then((html) => {
+      // Extrae el contenido del div con id="module-content"
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = html;
+      const moduleContent = tempDiv.querySelector("#module-content");
+      if (moduleContent) {
+        mainContent.innerHTML = moduleContent.innerHTML;
+      }
+    })
+    .catch((err) => {
+      console.error("Error al cargar el módulo:", err);
+      mainContent.innerHTML = "<p>Error al cargar el módulo.</p>";
+    });
 }
 
 // --- Punto de Entrada ---
